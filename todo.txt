@@ -2,8 +2,6 @@
 
 update/insert: "$cmd"{getlasterror:true}
 
-GridFS (TStream descendant?)
-
 helper methods, figure out how db/collection names work
 
 when data is coming in, send data already (detect TCP packet size?)

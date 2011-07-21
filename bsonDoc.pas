@@ -1,4 +1,11 @@
 unit bsonDoc;
+{  
+   BSON documents for TMongoWire
+
+
+   Originally developped by stijnsanders (devel@yoy.be) 
+   under MIT License
+}
 
 {$WARN SYMBOL_PLATFORM OFF}
 
@@ -55,16 +62,18 @@ type
     property Item[const Key: WideString]: OleVariant read Get_Item write Set_Item; default;
   end;
 
-  //TODO: ActiveX enumerator over elements
+  // Internal struct - item of element list in BSON doc
+  TElementItem = record
+      Key:WideString;
+      Value:OleVariant;
+    end;
 
+  //TODO: ActiveX enumerator over elements
   //BSON document as interfaced object allows storage in a variant variable
   TBSONDocument = class(TInterfacedObject, IBSONDocument, IPersistStream)
   private
     FDirty:boolean;
-    FElements:array of record
-      Key:WideString;
-      Value:OleVariant;
-    end;
+    FElements:array of TElementItem;
     FElementIndex,FElementSize,FLastIndex:integer;
     procedure GetIndex(Key: WideString;var Index:integer; var Match:boolean);
   protected
@@ -73,6 +82,7 @@ type
     function GetClassID(out classID: TCLSID): HResult; stdcall;
     function IsDirty: HResult; stdcall;
     function GetSizeMax(out cbSize: Largeint): HResult; stdcall;
+    function CompareKey(const Item1, Item2: string): integer;
   public
     procedure AfterConstruction; override;
     destructor Destroy; override;
@@ -143,9 +153,10 @@ procedure TBSONDocument.GetIndex(Key: WideString; var Index: integer;
 var
   a,b,c,x:integer;
 begin
+  // Binary search
   //case sensitivity?
   //check last getindex, speeds up set right after get
-  if (FElementIndex<>0) and (CompareStr(Key,FElements[FLastIndex].Key)=0) then
+  if (FElementIndex<>0) and (CompareKey(Key,FElements[FLastIndex].Key)=0) then
    begin
     Index:=FLastIndex;
     Match:=true;
@@ -159,7 +170,7 @@ begin
      begin
       c:=(a+b) div 2;
       //if c=a? c=b?
-      x:=CompareStr(Key,FElements[c].Key);
+      x:=CompareKey(Key,FElements[c].Key);
       if x=0 then
        begin
         a:=c;
@@ -190,22 +201,19 @@ procedure TBSONDocument.Set_Item(const Key: WideString; Value: OleVariant);
 var
   x:integer;
   m:boolean;
-  v:OleVariant;
 const
-  GrowStep=$20;//not too much, not too little (?)
+  GrowStep= $50; //$20;//not too much, not too little (?)
 begin
   GetIndex(Key,x,m);
   if not(m) then
    begin
-    if FElementIndex=FElementSize then
+    if FElementIndex>=FElementSize-1 then
      begin
       inc(FElementSize,GrowStep);
       SetLength(FElements,FElementSize);
      end;
-    Move(FElements[x],FElements[x+1],(SizeOf(WideString)+SizeOf(OleVariant))*(FElementIndex-x));
-    pointer(FElements[x].Key):=nil;
-    v:=Null;
-    Move(v,FElements[x].Value,SizeOf(OleVariant));
+    Move(FElements[x],FElements[x+1],SizeOf(TElementItem)*(FElementIndex-x));
+    FillChar( FElements[x], sizeof(TElementItem), 0 );
     inc(FElementIndex);
     FElements[x].Key:=Key;
    end;
@@ -430,7 +438,7 @@ begin
              end;
             else raise EBSONException.Create('Unknown BSON binary type '+IntToHex(o[11],2)+' at offset '+IntToHex(lstart,8));
           end;
-          raise EInvalidOperation.Create('Not Implemented');
+//          raise EInvalidOperation.Create('Not Implemented');
          end;
         bsonObjectID:
          begin
@@ -485,6 +493,7 @@ begin
         bsonTimestamp:
          begin
           stmRead(@ii,8);
+          { TODO : 4 bytes - increment, 4 bytes - timestamp }
           v:=ii;//convert?
          end;
         bsonInt64:
@@ -724,12 +733,12 @@ begin
     if (vt and varByRef)<>0 then
       raise EInvalidOperation.Create('VarByRef: not implemented');//TODO: arrays!!!
 
-    if IsArray and (vt=varByte) then
+    if IsArray and ( (vt and varTypeMask) =varByte) then
      begin
       i:=bsonBinary;
-      stmWrite(@i,4);
+      stmWrite(@i,1);
       stmWriteCString(key);
-      j:=VarArrayHighBound(v,1)-VarArrayLowBound(v,1);
+      j:=VarArrayHighBound(v,1)-VarArrayLowBound(v,1)+1;
       stmWrite(@j,4);
       i:=bsonBinaryGeneric;
       stmWrite(@i,1);
@@ -756,6 +765,7 @@ begin
       vstack[vindex].vstart:=ltotal;
       i:=0;
       stmWrite(@i,4);//don't know total length now, filled in later
+      
      end
     else
      begin
@@ -829,10 +839,10 @@ begin
 			      j:=Length(bsonObjectIDPrefix)+1;
             for i:=0 to 11 do
              begin
-              bb:=byte(AnsiChar(w[j+i*2]));
+              bb:=byte(AnsiChar(w[j+i*2+1])); 
               if (bb and $F0)=$30 then o[i]:=bb and $F else o[i]:=(9+bb) and $F;
-              bb:=byte(AnsiChar(w[j+i*2+1]));
-              if (bb and $F0)=$30 then inc(o[i],bb shl 4) else inc(o[i],(9+bb) shl 4);
+              bb:=byte(AnsiChar(w[j+i*2]));
+              if (bb and $F0)=$30 then inc(o[i],(bb and $F) shl 4) else inc(o[i],((9+bb) and $F) shl 4);
              end;
             stmWrite(@o[0],12);
            end
@@ -946,6 +956,16 @@ begin
   FLastIndex:=0;
 end;
 
+function TBSONDocument.CompareKey(const Item1, Item2: string): integer;
+var i1, i2: integer;
+    c1, c2: integer;
+begin
+  Val( Item1, i1, c1 );
+  Val( Item2, i2, c2 );
+  if (c1=0) and (c2=0) then Result := i1-i2
+                       else Result := AnsiCompareStr(Item1, Item2);
+end;
+
 function TBSONDocument.ToVarArray: OleVariant;
 var
   i:integer;
@@ -998,6 +1018,13 @@ begin
         if di=Length(d) then SetLength(d,di+GrowStep);
         d[di]:=TBSONDocument.Create as IBSONDocument;
         d[di-1].Item[key]:=d[di];
+       end else
+      if (VarType(x[i])=varArray) then
+       begin
+        if i<l then
+          d[di].Item[key] := x[i]
+        else
+          raise Exception.Create('BSON builder: last key is missing value');
        end
       else
         if i<l then

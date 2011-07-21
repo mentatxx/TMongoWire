@@ -1,8 +1,15 @@
 unit mongoWire;
+{  
+   Core MongoDB driver classes
+
+
+   Originally developped by stijnsanders (devel@yoy.be) 
+   under MIT License
+}
 
 interface
 
-uses SysUtils, SyncObjs, Classes, Sockets, bsonDoc;
+uses SysUtils, SyncObjs, Classes, Sockets, Windows, ActiveX, bsonDoc;
 
 type
   TBSONDocumentsEnumerator=class //abstract
@@ -60,8 +67,10 @@ type
       Selector:IBSONDocument;
       SingleRemove:boolean=false
     );
-  end;
+end;
 
+
+type
   TMongoWireQuery=class(TBSONDocumentsEnumerator)
   private
     FOwner:TMongoWire;
@@ -84,6 +93,7 @@ type
     property NumberToSkip:integer read FNumberToSkip write FNumberToSkip;//TODO: set?
   end;
 
+
   //TODO: TBSONDocumentsFromVariantArray=class(TBSONDocumentsEnumerator)
 
   EMongoException=class(Exception);
@@ -102,7 +112,7 @@ const
 
 implementation
 
-uses ActiveX, Variants;
+uses Variants;
 
 const
   OP_REPLY        = 1;
@@ -606,5 +616,6 @@ begin
     raise EMongoQueryError.Create('MongoWire.Query: '+VarToStr(d['$err']));
    end;
 end;
+
 
 end.
