@@ -124,9 +124,9 @@ begin
   ZeroMemory(@TimeZoneInfo, SizeOf(TimeZoneInfo));
   case GetTimeZoneInformation(TimeZoneInfo) of
     TIME_ZONE_ID_STANDARD, TIME_ZONE_ID_UNKNOWN:
-      Result := DateTime - (TimeZoneInfo.Bias + TimeZoneInfo.StandardBias) / MinutesPerDay;
+      Result := DateTime + (TimeZoneInfo.Bias + TimeZoneInfo.StandardBias) / MinutesPerDay;
     TIME_ZONE_ID_DAYLIGHT:
-      Result := DateTime - (TimeZoneInfo.Bias + TimeZoneInfo.DaylightBias) / MinutesPerDay;
+      Result := DateTime + (TimeZoneInfo.Bias + TimeZoneInfo.DaylightBias) / MinutesPerDay;
   else
     raise Exception.CreateRes(@RsMakeUTCTime);
   end;
@@ -139,9 +139,9 @@ begin
   ZeroMemory(@TimeZoneInfo, SizeOf(TimeZoneInfo));
   case GetTimeZoneInformation(TimeZoneInfo) of
     TIME_ZONE_ID_STANDARD, TIME_ZONE_ID_UNKNOWN:
-      Result := DateTime + (TimeZoneInfo.Bias + TimeZoneInfo.StandardBias) / MinutesPerDay;
+      Result := DateTime - (TimeZoneInfo.Bias + TimeZoneInfo.StandardBias) / MinutesPerDay;
     TIME_ZONE_ID_DAYLIGHT:
-      Result := DateTime + (TimeZoneInfo.Bias + TimeZoneInfo.DaylightBias) / MinutesPerDay;
+      Result := DateTime - (TimeZoneInfo.Bias + TimeZoneInfo.DaylightBias) / MinutesPerDay;
   else
     raise Exception.CreateRes(@RsMakeUTCTime);
   end;
