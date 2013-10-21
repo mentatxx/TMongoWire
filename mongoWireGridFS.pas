@@ -295,7 +295,7 @@ var Left: Int64;
     Page: Integer;
     Len, Ofs: Cardinal;
     Target: Pointer;
-    ReadBuf, ReadBufStart: Pointer;
+    ReadBuf, ReadBufStart: PByteArray;
 begin
   Left := Count;
   Target := @Buffer;
@@ -314,12 +314,12 @@ begin
       ReadBufStart := VarArrayLock(Self.Buffer);
       try
         ReadBuf := ReadBufStart;
-        Inc( pchar(ReadBuf), Ofs );
+        Inc( pByte(ReadBuf), Ofs );
         Move( ReadBuf^, Target^, Len);
         // уменьшаем оставшееся на количество скачанного
         Left :=  Left - Len;
         // смещаем указатель в целевом буфере
-        inc( pchar(Target), Len );
+        inc( pByte(Target), Len );
         FOffset := FOffset + Len;
         // продолжаем сначала страницы
         Ofs := 0;
@@ -421,14 +421,14 @@ begin
         AOfs := Ofs;
         // Пишем в страницу данные
         WriteBuf := WriteBufStart;
-        Inc( pchar(WriteBuf), Ofs );
+        Inc( pByte(WriteBuf), Ofs );
         Move( Target^, WriteBuf^, Len);
         // уменьшаем оставшееся на количество скачанного
         Left :=  Left - Len;
         // продолжаем сначала страницы
         Ofs := 0;
         // смещаем указатель в целевом буфере
-        inc( pchar(Target), Len );
+        inc( pByte(Target), Len );
         FOffset := FOffset + Len;
         // предполагаем максимальную длину до чанка
         Len := ChunkSize;
